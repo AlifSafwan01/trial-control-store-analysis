@@ -29,4 +29,14 @@ For a recall, this data contains 13 variables and 251,158 observations :-
 | LIFESTAGE |  The customer's life stage category (7 groups) |
 | PREMIUM_CUSTOMER | The customer's budget category (3 groups) |
 
-## Evaluations Metrics
+The Category Manager asked us to test the impact of trial store with STORE_NBR 77, 86 and 88 for trial duration from February 2019 until April 2019.
+
+## Evaluation Metrics for Control Stores
+
+To find best control stores for each trial stores, the evaluation metrics created by evaluating each store slaes performance during each pre-trial months which is from July 2018 until January 2019.
+
+The evaluation metrics involved as follow :-
+1. Monthly total sales
+2. Monthly unique customer
+3. Monthly average transaction per customer
+4. Monthly average quantity purchased per transaction

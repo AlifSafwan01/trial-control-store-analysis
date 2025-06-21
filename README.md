@@ -9,7 +9,7 @@ The objective of this project is as follows :-
 
 ## Chip Data
 
-Chip data used where this data from [Retail Sales Analysis]((https://github.com/AlifSafwan01/retail-sales-analysis) that already cleaned and prepared version.
+Chip data used where this data from [Retail Sales Analysis](https://github.com/AlifSafwan01/retail-sales-analysis) that already cleaned and prepared version.
 
 For a recall, this data contains 13 variables and 251,158 observations :-
 
@@ -40,3 +40,17 @@ The evaluation metrics involved as follow :-
 2. Monthly unique customer
 3. Monthly average transaction per customer
 4. Monthly average quantity purchased per transaction
+
+From this evaluation metrics, best control store evaluate using euclidean distance each store compare to trial store. Since, in the evaluation have 4 criterias, then dimension for euclidean is 4D. The store that shortest distance with trial store is the best control store.
+
+euclidean distance between trial and control, $d = \sqrt{(x_t - x_c)^2 + (y_t - y_c)^2 + (z_t - z_c)^2 + (w_t - w_c)^2}$.
+
+After evaluation, the trial and selected control store as follow :-
+
+| Trial Store | Control Store |
+| --- | --- |
+| 77 | 233 |
+| 86 | 155 |
+| 88 | 237 |
+
+

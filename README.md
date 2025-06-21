@@ -53,4 +53,10 @@ After evaluation, the trial and selected control store as follow :-
 | 86 | 155 |
 | 88 | 237 |
 
+## Statisticals Analysis
 
+Monthly total sales and Monthly number of customer will be tested for each trial and control store. Then the monthly total sales and monthly number of customer of control store need to scale to make it almost same as trial.
+
+$\text{Scaled Control Sales}_t = \text{Control Sales}_t \times \frac{\sum \text{Trial Sales}}{\sum \text{Control Sales}}$
+
+$\text{Scaled Control Number of Customer}_t = \text{Control Number of Customer}_t \times \frac{\sum \text{Trial Number of Customer}}{\sum \text{Control Number of Customer}}$

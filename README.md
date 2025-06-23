@@ -1,17 +1,18 @@
 # Quantium Data Analytics Job Simulation - Experimentation and Uplift Testing
 
-This project is contiounation of [Retail Sales Analysis](https://github.com/AlifSafwan01/retail-sales-analysis), where the Category Manager of Chips has asked us to test the impact of the new trial layouats with a data driven recommendation to wether or not the trial layout should be rolled out to all their stores.
+This project is a continuation of the [Retail Sales Analysis](https://github.com/AlifSafwan01/retail-sales-analysis), where the Category Manager for chips requested an evaluation of new trial store layouts. The goal is to determine, through data-driven analysis, wether these layouts should be rolled out across all stores.
 
-The objective of this project is as follows :-
-1. Define metrics to select best control stores for each trial stores.
-2. Analyze trial stores against controls.
-3. Perform statistical analysis to assess sales differences and formulate recommendations.
+## Project Objectives
+
+1. Define metrics to identify the best control stores for each trial store.
+2. Analyze trial stores against their corresponding control stores.
+3. Perform statistical analysis to assess sales impact and provide actionable recommendations.
 
 ## Chip Data
 
-[Chip Data](chip_data.xlsx) used where this data from [Retail Sales Analysis](https://github.com/AlifSafwan01/retail-sales-analysis) that already cleaned and prepared version.
+The dataset used in this project, [Chip Data](chip_data.xlsx), is sourced from the cleaned and prepared version in the [Retail Sales Analysis](https://github.com/AlifSafwan01/retail-sales-analysis) project.
 
-For a recall, this data contains 13 variables and 251,158 observations :-
+To recap, the dataset contains 13 variables and 251,158 observations :-
 
 | Variable | Description |
 | --- | --- |
@@ -29,25 +30,24 @@ For a recall, this data contains 13 variables and 251,158 observations :-
 | LIFESTAGE |  The customer's life stage category (7 groups) |
 | PREMIUM_CUSTOMER | The customer's budget category (3 groups) |
 
-The Category Manager asked us to test the impact of trial store with STORE_NBR 77, 86 and 88 for trial duration from February 2019 until April 2019.
+The Category Manager selected store numbers 77, 86, 88 as trial stores, with the trial period spanning from February 2019 to April 2019.
 
 ## Evaluation Metrics for Control Stores
 
-To find best control stores for each trial stores, the evaluation metrics created by evaluating each store slaes performance during each pre-trial months which is from July 2018 until January 2019.
+To identify the most suitable control stores for each trial store, we evaluated sales performance during the pre-trial period (July 2018 to January 2019) using the following metrics :-
 
-The evaluation metrics involved as follow :-
 1. Monthly total sales
-2. Monthly unique customer
+2. Monthly number of unique customers
 3. Monthly average transaction per customer
 4. Monthly average quantity purchased per transaction
 
-From this evaluation metrics, best control store evaluate using euclidean distance each store compare to trial store. Since, in the evaluation have 4 criterias, then dimension for euclidean is 4D. The store that shortest distance with trial store is the best control store.
+Euclidean distance was calculated across these four dimensions to find the closest mathcing control store for each trial store. The formula is :- 
 
-euclidean distance between trial and control, 
+$$
+d = \sqrt{(x_t - x_c)^2 + (y_t - y_c)^2 + (z_t - z_c)^2 + (w_t - w_c)^2}
+$$
 
-$$d = \sqrt{(x_t - x_c)^2 + (y_t - y_c)^2 + (z_t - z_c)^2 + (w_t - w_c)^2}$$
-
-After evaluation, the trial and selected control store as follow :-
+The closest control store identified were :-
 
 | Trial Store | Control Store |
 | --- | --- |
@@ -55,72 +55,77 @@ After evaluation, the trial and selected control store as follow :-
 | 86 | 155 |
 | 88 | 237 |
 
-## Statisticals Analysis
+## Statistical Analysis
 
-Monthly total sales and Monthly number of customer will be tested for each trial and control store. Then the monthly total sales and monthly number of customer of control store need to scale to make it almost same as trial.
+For each trial and corresponding control store, the following were analyzed :-
+- Monthly total sales
+- Monthly number of customers
+
+To ensure comparability, control store metrics were scaled :-
 
 $$
 \text{Scaled Control Sales}_m = \text{Control Sales}_m \times \frac{\sum \text{Trial Sales}}{\sum \text{Control Sales}}
 $$
 $$
-\text{Scaled Control Number of Customer}_m = \text{Control Number of Customer}_m \times \frac{\sum \text{Trial Number of Customer}}{\sum \text{Control Number of Customer}}
+\text{Scaled Control Customer}_m = \text{Control Customer}_m \times \frac{\sum \text{Trial Customer}}{\sum \text{Control Customer}}
 $$
 
-Then, we find the absolute sales and number of customer difference between trial and scaled control stores.
+We then calculated the absolute differences :-
 
 $$
-\text{Absolute Difference Sales}_m = \left| \text{Scaled Control Sales}_m - \text{Trial Sales}_m \right|
+\text{Absolute Sales Difference}_m = \left| \text{Scaled Control Sales}_m - \text{Trial Sales}_m \right|
 $$
 $$
-\text{Absolute Difference Number of Customer}_m = \left| \text{Scaled Control Number of Customer}_m - \text{Trial Number of Customer}_m \right|
-$$
-
-From absolute difference sales and number of customers, we formulate hypothesis testisng to test statistical significant differences. Since we want to see wether the layout should be layout then our hypothesis testing as follow :-
-1. Hypothesis Testing for Sales
-
-$$
-\text{H}_0\text{ \: } \mu\_\text{pre trial sales}  = \text{trial monthly sales}
+\text{Absolute Customer Difference}_m = \left| \text{Scaled Control Customer}_m - \text{Trial Customer}_m \right|
 $$
 
-$$
-\text{H}_1\text{ \: } \mu\_\text{pre trial sales}  \neq \text{trial monthly sales}
-$$
+To determine whether the differences are statistically significant, we formulated the following hypothesis :-
 
-2. Hypothesis Testing for Number of Customers
+1. Sales Hypothesis
 
 $$
-\text{H}_0\text{ \: } \mu\_\text{pre trial number of customer}  = \text{trial monthly number of customer}
+\text{Null Hypothesis, H}_0\text{ \: } \mu\_\text{pre trial sales}  = \text{trial monthly sales}
 $$
 
 $$
-\text{H}_1\text{ \: } \mu\_\text{pre trial number of customer}  \neq \text{trial monthly number of customer}
+\text{Alternative Hypothesis, H}_1\text{ \: } \mu\_\text{pre trial sales}  \neq \text{trial monthly sales}
 $$
 
-By assuming all sales and number of customers from every month during pre-trial duration are following normal distribution, and since the prie trial month only involved 7 months with unknown variance, hence t-distribution used as follow :-
+2. Customer Count Hypothesis
+
+$$
+\text{Null Hypothesis, H}_0\text{ \: } \mu\_\text{pre-trial customers}  = \text{trial monthly customers}
+$$
+
+$$
+\text{Alternative Hypothesis, H}_1\text{ \: } \mu\_\text{pre-trial customers}  \neq \text{trial monthly customers}
+$$
+
+Assuming normal distribution and unknown variance (with only 7 pre-trial months), we used the t-distribution for our test :-
 
 Let,
 
 $$
-\mu = \text{single trial monthly sales}
+\mu = \text{Trial monthly value}
 $$
 
-$$\bar{X} = \frac{\sum{\text{pre trial sales}}}{7}$$
+$$\bar{X} = \frac{\sum{\text{Pre-trial values}}}{7}$$
 
 $$
-Sd = \sqrt{\frac{\sum{(\text{pre-trial sales} - \bar{X})^2}}{6}}
+Sd = \sqrt{\frac{\sum{(\text{Pre-trial value} - \bar{X})^2}}{6}}
 $$
 
-Then, test statistics,
+The test statistic is,
 
 $$
 T = \frac{\bar{X}-\mu}{\frac{Sd}{\sqrt{7}}}
 $$
 
-Then T-value will be compared to t-distribution with 0.025 significant level with degree of freedom 6
+We compared the resulting T-value to the critical t-distribution value at a 0.025 significant level with 6 degrees of freedom.
 
 ## Analysis and Report
 
-The full report is provided in three formats.
+The complete report is available in the following formats.
 1. [Trial_Control-Stores-Analysis.Rmd](Trial_Control-Stores-Analysis.Rmd) - R markdown format.
 2. [Trial_Control-Stores-Analysis.html](Trial_Control-Stores-Analysis.html) - HTML format.
 3. [Trial_Control-Stores-Analysis.pdf](Trial_Control-Stores-Analysis.pdf) - PDF format.

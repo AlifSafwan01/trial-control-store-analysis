@@ -9,7 +9,7 @@ The objective of this project is as follows :-
 
 ## Chip Data
 
-Chip data used where this data from [Retail Sales Analysis](https://github.com/AlifSafwan01/retail-sales-analysis) that already cleaned and prepared version.
+[Chip Data](chip_data.xlsx) used where this data from [Retail Sales Analysis](https://github.com/AlifSafwan01/retail-sales-analysis) that already cleaned and prepared version.
 
 For a recall, this data contains 13 variables and 251,158 observations :-
 
@@ -118,3 +118,9 @@ $$
 
 Then T-value will be compared to t-distribution with 0.025 significant level with degree of freedom 6
 
+## Analysis and Report
+
+The full report is provided in three formats.
+1. [Trial_Control-Stores-Analysis.Rmd](Trial_Control-Stores-Analysis.Rmd) - R markdown format.
+2. [Trial_Control-Stores-Analysis.html](Trial_Control-Stores-Analysis.html) - HTML format.
+3. [Trial_Control-Stores-Analysis.pdf](Trial_Control-Stores-Analysis.pdf) - PDF format.

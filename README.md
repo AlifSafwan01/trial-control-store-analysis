@@ -59,9 +59,12 @@ After evaluation, the trial and selected control store as follow :-
 
 Monthly total sales and Monthly number of customer will be tested for each trial and control store. Then the monthly total sales and monthly number of customer of control store need to scale to make it almost same as trial.
 
-$\text{Scaled Control Sales}_m = \text{Control Sales}_m \times \frac{\sum \text{Trial Sales}}{\sum \text{Control Sales}}$
-
-$\text{Scaled Control Number of Customer}_m = \text{Control Number of Customer}_m \times \frac{\sum \text{Trial Number of Customer}}{\sum \text{Control Number of Customer}}$
+$$
+\text{Scaled Control Sales}_m = \text{Control Sales}_m \times \frac{\sum \text{Trial Sales}}{\sum \text{Control Sales}}
+$$
+$$
+\text{Scaled Control Number of Customer}_m = \text{Control Number of Customer}_m \times \frac{\sum \text{Trial Number of Customer}}{\sum \text{Control Number of Customer}}
+$$
 
 Then, we find the absolute sales and number of customer difference between trial and scaled control stores.
 
@@ -75,21 +78,31 @@ $$
 From absolute difference sales and number of customers, we formulate hypothesis testisng to test statistical significant differences. Since we want to see wether the layout should be layout then our hypothesis testing as follow :-
 1. Hypothesis Testing for Sales
 
-$$\text{H}_0\text{ \: } \mu\_\text{pre trial sales}  = \text{trial monthly sales}$$
+$$
+\text{H}_0\text{ \: } \mu\_\text{pre trial sales}  = \text{trial monthly sales}
+$$
 
-$$\text{H}_1\text{ \: } \mu\_\text{pre trial sales}  \neq \text{trial monthly sales}$$
+$$
+\text{H}_1\text{ \: } \mu\_\text{pre trial sales}  \neq \text{trial monthly sales}
+$$
 
 2. Hypothesis Testing for Number of Customers
 
-$$\text{H}_0\text{ \: } \mu\_\text{pre trial number of customer}  = \text{trial monthly number of customer}$$
+$$
+\text{H}_0\text{ \: } \mu\_\text{pre trial number of customer}  = \text{trial monthly number of customer}
+$$
 
-$$\text{H}_1\text{ \: } \mu\_\text{pre trial number of customer}  \neq \text{trial monthly number of customer}$$
+$$
+\text{H}_1\text{ \: } \mu\_\text{pre trial number of customer}  \neq \text{trial monthly number of customer}
+$$
 
 By assuming all sales and number of customers from every month during pre-trial duration are following normal distribution, and since the prie trial month only involved 7 months with unknown variance, hence t-distribution used as follow :-
 
 Let,
 
-$$\mu = \text{single trial monthly sales}$$
+$$
+\mu = \text{single trial monthly sales}
+$$
 
 $$\bar{X} = \frac{\sum{\text{pre trial sales}}}{7}$$
 
@@ -99,6 +112,9 @@ $$
 
 Then, test statistics,
 
-$$T = \frac{\bar{X}-\mu}{\frac{Sd}{\sqrt{7}}}$$
+$$
+T = \frac{\bar{X}-\mu}{\frac{Sd}{\sqrt{7}}}
+$$
 
 Then T-value will be compared to t-distribution with 0.025 significant level with degree of freedom 6
+

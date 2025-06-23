@@ -1,0 +1,623 @@
+---
+title: "Chip Analysis Task 2"
+author: "Alif Safwan"
+date: "2025-01-06"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+    number_sections: true
+    fig_width: 6
+    fig_height: 4
+    keep_tex: true
+fontsize: 11pt
+geometry: margin=1in
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(tidy = TRUE, tidy.opts = list(width.cutoff = 60))
+```
+
+# Import Library and Data
+
+```{r import library, message=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(tidyr)
+setwd("C:/Users/User/Documents/Project Forage/Quantium")
+```
+
+```{r import data}
+Chip <- read_excel("C:/Users/User/Documents/Project Forage/Quantium/chip_data.xlsx")
+```
+
+# Data Preparation and Exploratory Data Analysis
+
+```{r inspect data}
+summary(Chip)
+```
+```{r check for missing value}
+colSums(is.na(Chip))
+```
+```{r trial store 77}
+Chip %>%
+  filter(STORE_NBR == 77)
+```
+```{r trial store 86}
+Chip %>%
+  filter(STORE_NBR == 86)
+```
+```{r trial store 88}
+Chip %>%
+  filter(STORE_NBR == 88)
+```
+
+# Finding Control Store
+
+```{r modifying data}
+modified_chip <- Chip %>%
+  mutate(YMcode = format(DATE, "%Y-%m")) %>%
+  group_by(YMcode, STORE_NBR) %>%
+  summarise(monthly_sales = sum(TOT_SALES, na.rm = TRUE), 
+            monthly_customer = length(unique(LYLTY_CARD_NBR)), 
+            monthly_avg_trans_customer = n()/length(unique(LYLTY_CARD_NBR)),
+            monthly_avg_chip_trans = sum(PROD_QTY, na.rm = TRUE)/n()) %>%
+  ungroup()
+
+```
+
+```{r inspect modified data}
+colSums(is.na(modified_chip))
+```
+
+```{r filtering month-year before 2019-02 as pre-trial}
+pre_trial <- modified_chip %>%
+  filter(YMcode < "2019-02" )
+```
+
+```{r spread data}
+metrics_wide <- pre_trial %>%
+  dplyr::select(STORE_NBR, YMcode, monthly_sales, monthly_customer, monthly_avg_trans_customer, monthly_avg_chip_trans) %>%
+  pivot_wider(names_from = YMcode, values_from = c(monthly_sales, monthly_customer, monthly_avg_trans_customer, monthly_avg_chip_trans)) %>%
+  drop_na()
+```
+
+```{r find control store using Euclidean Distance}
+# Extract trial store data (Store 77, 86 and 88)
+trial_store <- c(77,86,88)
+for (trial_store_id in trial_store) {
+  
+
+trial_data <- metrics_wide %>% filter(STORE_NBR == trial_store_id) %>% dplyr::select(-STORE_NBR)
+
+# Step 3: Compute Euclidean Distance for Each Store
+compute_euclidean <- function(x, y) {
+  sqrt(sum((x - y) ^ 2, na.rm = TRUE))  # Standard Euclidean formula
+}
+
+distance_results <- metrics_wide %>%
+  filter(STORE_NBR != trial_store_id) %>%
+  rowwise() %>%
+  mutate(euclidean_dist = compute_euclidean(c_across(-STORE_NBR), unlist(trial_data))) %>%
+  arrange(euclidean_dist) %>%
+  ungroup()
+
+best_control_store <- distance_results %>% slice(1)
+
+print(paste("Best Control Store for", trial_store_id, "is", best_control_store$STORE_NBR))
+}
+```
+
+# Analysis of Trial Store 77 compare to Control Store 233
+
+a) Total Sales
+
+```{r Total Sales of store in pre-trial duration for Store 77}
+Chip %>%
+  mutate(YMcode = format(DATE, "%Y-%m")) %>%
+  group_by(YMcode, STORE_NBR) %>%
+  filter(YMcode < "2019-02") %>%
+  summarise(total = sum(TOT_SALES), .groups = "drop") %>%
+  mutate(timeline = case_when(
+    STORE_NBR == 77 ~ "Trial Store",
+    STORE_NBR == 233 ~ "Control Store",
+    TRUE ~ "Other Stores"
+  )) %>%
+  group_by(YMcode, timeline) %>%
+  summarise(total = mean(total), .groups = "drop") %>%
+  ggplot(aes(x = YMcode, y = total, color = timeline, group = timeline)) +
+  geom_line(size = 1) +
+  labs(title = "Total Sales Comparison between Store 77 (Trial),Store 233 (Control) and Average Total Sales of Other Stores", 
+       x = "Date", 
+       y = "Total",
+       color = "Store") +
+  theme_minimal()
+```
+
+
+```{r Significant diff in total sales between trial and pre-trial for store 77, message=FALSE}
+trial_month <- c("2019-02","2019-03","2019-04")
+for (i in trial_month) {
+  Mod_Chip <- Chip %>%
+  mutate(YMcode = format(DATE, "%Y-%m")) %>%
+  group_by(YMcode, STORE_NBR) %>%
+  filter((YMcode < "2019-02" | YMcode == i) & (STORE_NBR == 77 | STORE_NBR == 233 )) %>%
+  summarise( total = sum(TOT_SALES)) %>%
+  pivot_wider(names_from = STORE_NBR, values_from = total, names_prefix = "STORE_NBR_") %>%
+  ungroup() %>%
+  mutate(Controled_Store_NBR_233 = STORE_NBR_233*sum(STORE_NBR_77)/sum(STORE_NBR_233),
+         Abs_diff_tot_with_control = abs(STORE_NBR_77 - Controled_Store_NBR_233))
+  trial <- Mod_Chip %>%
+    filter(YMcode < "2019-02") %>%
+    pull(Abs_diff_tot_with_control)
+  Mean <- Mod_Chip %>%
+    filter(YMcode == i) %>%
+    pull(Abs_diff_tot_with_control)
+  SD <- sd(trial)
+  t <- abs(mean(trial)-Mean)/(SD/sqrt(7))
+  if(t > qt(p = 0.025,6, lower.tail = FALSE))
+  { print(paste("Trial Month",i, "is significant different compared to pre-trial month"))}
+  else
+  {
+    print(paste("Trial Month",i, "is not significant different compared to pre-trial month"))
+  }
+}
+```
+
+```{r Total Sales between 95percent confidence interval of store 233 and store 77}
+Chip %>%
+  mutate(YMcode = format(DATE, "%Y-%m")) %>%
+  group_by(YMcode, STORE_NBR) %>%
+  summarise(total = sum(TOT_SALES), .groups = "drop") %>%
+  filter(STORE_NBR == 77 | STORE_NBR == 233) %>%
+  pivot_wider(names_from = STORE_NBR, values_from = total, names_prefix = "Store_Nbr") %>%
+  mutate(upper = Store_Nbr233+qt(p = 0.025,6, lower.tail = FALSE)*sd(Store_Nbr233[YMcode < "2019-02"])/sqrt(7),
+         lower = Store_Nbr233+qt(p = 0.025,6, lower.tail = TRUE)*sd(Store_Nbr233[YMcode < "2019-02"])/sqrt(7)) %>%
+  pivot_longer(cols = c(Store_Nbr77, Store_Nbr233,upper,lower), 
+               names_to = "Series", 
+               values_to ="Values") %>%
+  mutate(Series = case_when(Series == "Store_Nbr233" ~ "Control Store 233",
+                            Series == "Store_Nbr77" ~ "Trial Store 77",
+                            Series == "upper" ~ "Upper 95% Confidence Interval Store 233",
+                            Series == "lower" ~ "Lower 95% Confidence Interval Store 233")) %>%
+  ggplot(aes(x = YMcode, y = Values, color = Series, group = Series)) +
+    geom_rect(aes(xmin = format(as.Date("2019-02-01"), "%Y-%m"), 
+                  xmax = format(as.Date("2019-04-30"), "%Y-%m"), 
+                  ymin = -Inf, ymax = Inf),
+                  fill = "lightblue", alpha = 0.3, inherit.aes = FALSE) +
+    geom_line(size = 1) +
+    labs(title = "Total Sales by Month", 
+         x = "Month", 
+         y = "Total Sales",
+         color = "Store") +
+    scale_y_continuous(breaks = seq(0, 400, by = 100)) +
+    scale_x_discrete(guide = guide_axis(angle = 45)) +
+    theme_minimal()
+```
+
+
+b) Number of Customer
+
+```{r NUmber of Customer from store in pre-trial duration for Store 77}
+Chip %>%
+  mutate(YMcode = format(DATE, "%Y-%m")) %>%
+  group_by(YMcode, STORE_NBR) %>%
+  filter(YMcode < "2019-02") %>%
+  summarise(total = n_distinct(LYLTY_CARD_NBR), .groups = "drop") %>%
+  mutate(timeline = case_when(
+    STORE_NBR == 77 ~ "Trial Store",
+    STORE_NBR == 233 ~ "Control Store",
+    TRUE ~ "Other Stores"
+  )) %>%
+  group_by(YMcode, timeline) %>%
+  summarise(total = mean(total), .groups = "drop") %>%
+  ggplot(aes(x = YMcode, y = total, color = timeline, group = timeline)) +
+  geom_line(size = 1) +
+  labs(title = "Number of Customer Comparison between Store 77 (Trial),Store 233 (Control) and Average Total Sales of Other Stores", 
+       x = "Date", 
+       y = "Number of Customer",
+       color = "Store") +
+  theme_minimal()
+```
+
+```{r Significant diff in total customer between trial and pre-trial for store 77, message=FALSE}
+trial_month <- c("2019-02","2019-03","2019-04")
+for (i in trial_month) {
+  Mod_Chip <- Chip %>%
+  mutate(YMcode = format(DATE, "%Y-%m")) %>%
+  group_by(YMcode, STORE_NBR) %>%
+  filter((YMcode < "2019-02" | YMcode == i) & (STORE_NBR == 77 | STORE_NBR == 233 )) %>%
+  summarise(total = n_distinct(LYLTY_CARD_NBR)) %>%
+  pivot_wider(names_from = STORE_NBR, values_from = total, names_prefix = "STORE_NBR_") %>%
+  ungroup() %>%
+  mutate(Controled_Store_NBR_233 = STORE_NBR_233*sum(STORE_NBR_77)/sum(STORE_NBR_233),
+         Abs_diff_tot_with_control = abs(STORE_NBR_77 - Controled_Store_NBR_233))
+  trial <- Mod_Chip %>%
+    filter(YMcode < "2019-02") %>%
+    pull(Abs_diff_tot_with_control)
+  Mean <- Mod_Chip %>%
+    filter(YMcode == i) %>%
+    pull(Abs_diff_tot_with_control)
+  SD <- sd(trial)
+  t <- abs(mean(trial)-Mean)/(SD/sqrt(7))
+  if(t > qt(p = 0.025,6, lower.tail = FALSE))
+  { print(paste("Trial Month",i, "is significant different compared to pre-trial month"))}
+  else
+  {
+    print(paste("Trial Month",i, "is not significant different compared to pre-trial month"))
+  }
+}
+```
+
+```{r Total Customer between 95percent confidence interval of store 233 and store 77}
+Chip %>%
+  mutate(YMcode = format(DATE, "%Y-%m")) %>%
+  group_by(YMcode, STORE_NBR) %>%
+  summarise(total = n_distinct(LYLTY_CARD_NBR), .groups = "drop") %>%
+  filter(STORE_NBR == 77 | STORE_NBR == 233) %>%
+  pivot_wider(names_from = STORE_NBR, values_from = total, names_prefix = "Store_Nbr") %>%
+  mutate(upper = Store_Nbr233+qt(p = 0.025,6, lower.tail = FALSE)*sd(Store_Nbr233[YMcode < "2019-02"])/sqrt(7),
+         lower = Store_Nbr233+qt(p = 0.025,6, lower.tail = TRUE)*sd(Store_Nbr233[YMcode < "2019-02"])/sqrt(7)) %>%
+  pivot_longer(cols = c(Store_Nbr77, Store_Nbr233,upper,lower), 
+               names_to = "Series", 
+               values_to ="Values") %>%
+  mutate(Series = case_when(Series == "Store_Nbr233" ~ "Control Store 233",
+                            Series == "Store_Nbr77" ~ "Trial Store 77",
+                            Series == "upper" ~ "Upper 95% Confidence Interval Store 233",
+                            Series == "lower" ~ "Lower 95% Confidence Interval Store 233")) %>%
+  ggplot(aes(x = YMcode, y = Values, color = Series, group = Series)) +
+    geom_rect(aes(xmin = format(as.Date("2019-02-01"), "%Y-%m"), 
+                  xmax = format(as.Date("2019-04-30"), "%Y-%m"), 
+                  ymin = -Inf, ymax = Inf),
+                  fill = "lightblue", alpha = 0.3, inherit.aes = FALSE) +
+    geom_line(size = 1) +
+    labs(title = "Number of Customer by Month", 
+         x = "Month", 
+         y = "Number of Customer",
+         color = "Store") +
+    scale_y_continuous(breaks = seq(0, 50, by = 10)) +
+    scale_x_discrete(guide = guide_axis(angle = 45)) +
+    theme_minimal()
+```
+
+# Analysis of Trial Store 86 compare to Control Store 155
+
+a) Total Sales
+
+```{r Total Sales of store in pre-trial duration for Store 86}
+Chip %>%
+  mutate(YMcode = format(DATE, "%Y-%m")) %>%
+  group_by(YMcode, STORE_NBR) %>%
+  filter(YMcode < "2019-02") %>%
+  summarise(total = sum(TOT_SALES), .groups = "drop") %>%
+  mutate(timeline = case_when(
+    STORE_NBR == 86 ~ "Trial Store",
+    STORE_NBR == 155 ~ "Control Store",
+    TRUE ~ "Other Stores"
+  )) %>%
+  group_by(YMcode, timeline) %>%
+  summarise(total = mean(total), .groups = "drop") %>%
+  ggplot(aes(x = YMcode, y = total, color = timeline, group = timeline)) +
+  geom_line(size = 1) +
+  labs(title = "Total Sales Comparison between Store 86 (Trial),Store 155 (Control) and Average Total Sales of Other Stores", 
+       x = "Date", 
+       y = "Total",
+       color = "Store") +
+  theme_minimal()
+```
+
+```{r Significant diff in total sales between trial and pre-trial for store 86, message=FALSE}
+trial_month <- c("2019-02","2019-03","2019-04")
+for (i in trial_month) {
+  Mod_Chip <- Chip %>%
+  mutate(YMcode = format(DATE, "%Y-%m")) %>%
+  group_by(YMcode, STORE_NBR) %>%
+  filter((YMcode < "2019-02" | YMcode == i) & (STORE_NBR == 86 | STORE_NBR == 155 )) %>%
+  summarise( total = sum(TOT_SALES)) %>%
+  pivot_wider(names_from = STORE_NBR, values_from = total, names_prefix = "STORE_NBR_") %>%
+  ungroup() %>%
+  mutate(Controled_Store_NBR_155 = STORE_NBR_155*sum(STORE_NBR_86)/sum(STORE_NBR_155),
+         Abs_diff_tot_with_control = abs(STORE_NBR_86 - Controled_Store_NBR_155))
+  trial <- Mod_Chip %>%
+    filter(YMcode < "2019-02") %>%
+    pull(Abs_diff_tot_with_control)
+  Mean <- Mod_Chip %>%
+    filter(YMcode == i) %>%
+    pull(Abs_diff_tot_with_control)
+  SD <- sd(trial)
+  t <- abs(mean(trial)-Mean)/(SD/sqrt(7))
+  if(t > qt(p = 0.025,6, lower.tail = FALSE))
+  { print(paste("Trial Month",i, "is significant different compared to pre-trial month"))}
+  else
+  {
+    print(paste("Trial Month",i, "is not significant different compared to pre-trial month"))
+  }
+}
+```
+
+```{r Total Sales between 95percent confidence interval of store 155 and store 86}
+Chip %>%
+  mutate(YMcode = format(DATE, "%Y-%m")) %>%
+  group_by(YMcode, STORE_NBR) %>%
+  summarise(total = sum(TOT_SALES), .groups = "drop") %>%
+  filter(STORE_NBR == 86 | STORE_NBR == 155) %>%
+  pivot_wider(names_from = STORE_NBR, values_from = total, names_prefix = "Store_Nbr") %>%
+  mutate(upper = Store_Nbr155+qt(p = 0.025,6, lower.tail = FALSE)*sd(Store_Nbr155[YMcode < "2019-02"])/sqrt(7),
+         lower = Store_Nbr155+qt(p = 0.025,6, lower.tail = TRUE)*sd(Store_Nbr155[YMcode < "2019-02"])/sqrt(7)) %>%
+  pivot_longer(cols = c(Store_Nbr86, Store_Nbr155,upper,lower), 
+               names_to = "Series", 
+               values_to ="Values") %>%
+  mutate(Series = case_when(Series == "Store_Nbr155" ~ "Control Store 155",
+                            Series == "Store_Nbr86" ~ "Trial Store 86",
+                            Series == "upper" ~ "Upper 95% Confidence Interval Store 155",
+                            Series == "lower" ~ "Lower 95% Confidence Interval Store 155")) %>%
+  ggplot(aes(x = YMcode, y = Values, color = Series, group = Series)) +
+    geom_rect(aes(xmin = format(as.Date("2019-02-01"), "%Y-%m"), 
+                  xmax = format(as.Date("2019-04-30"), "%Y-%m"), 
+                  ymin = -Inf, ymax = Inf),
+                  fill = "lightblue", alpha = 0.3, inherit.aes = FALSE) +
+    geom_line(size = 1) +
+    labs(title = "Total Sales by Month", 
+         x = "Month", 
+         y = "Total Sales",
+         color = "Store") +
+    scale_y_continuous(breaks = seq(0, 1000, by = 100)) +
+    scale_x_discrete(guide = guide_axis(angle = 45)) +
+    theme_minimal()
+```
+
+b) Number of Customer
+
+```{r Number of Customer store in pre-trial duration for Store 86}
+Chip %>%
+  mutate(YMcode = format(DATE, "%Y-%m")) %>%
+  group_by(YMcode, STORE_NBR) %>%
+  filter(YMcode < "2019-02") %>%
+  summarise(total = n_distinct(LYLTY_CARD_NBR), .groups = "drop") %>%
+  mutate(timeline = case_when(
+    STORE_NBR == 86 ~ "Trial Store",
+    STORE_NBR == 155 ~ "Control Store",
+    TRUE ~ "Other Stores"
+  )) %>%
+  group_by(YMcode, timeline) %>%
+  summarise(total = mean(total), .groups = "drop") %>%
+  ggplot(aes(x = YMcode, y = total, color = timeline, group = timeline)) +
+  geom_line(size = 1) +
+  labs(title = "Number of Customer Comparison between Store 86 (Trial),Store 155 (Control) and Average Total Sales of Other Stores", 
+       x = "Date", 
+       y = "Number of Customer",
+       color = "Store") +
+  theme_minimal()
+```
+
+```{r Significant diff in total customer between trial and pre-trial for store 86, message=FALSE}
+trial_month <- c("2019-02","2019-03","2019-04")
+for (i in trial_month) {
+  Mod_Chip <- Chip %>%
+  mutate(YMcode = format(DATE, "%Y-%m")) %>%
+  group_by(YMcode, STORE_NBR) %>%
+  filter((YMcode < "2019-02" | YMcode == i) & (STORE_NBR == 86 | STORE_NBR == 155 )) %>%
+  summarise( total = n_distinct(LYLTY_CARD_NBR)) %>%
+  pivot_wider(names_from = STORE_NBR, values_from = total, names_prefix = "STORE_NBR_") %>%
+  ungroup() %>%
+  mutate(Controled_Store_NBR_155 = STORE_NBR_155*sum(STORE_NBR_86)/sum(STORE_NBR_155),
+         Abs_diff_tot_with_control = abs(STORE_NBR_86 - Controled_Store_NBR_155))
+  trial <- Mod_Chip %>%
+    filter(YMcode < "2019-02") %>%
+    pull(Abs_diff_tot_with_control)
+  Mean <- Mod_Chip %>%
+    filter(YMcode == i) %>%
+    pull(Abs_diff_tot_with_control)
+  SD <- sd(trial)
+  t <- abs(mean(trial)-Mean)/(SD/sqrt(7))
+  if(t > qt(p = 0.025,6, lower.tail = FALSE))
+  { print(paste("Trial Month",i, "is significant different compared to pre-trial month"))}
+  else
+  {
+    print(paste("Trial Month",i, "is not significant different compared to pre-trial month"))
+  }
+}
+```
+
+```{r Total Customer between 95percent confidence interval of store 155 and store 86}
+Chip %>%
+  mutate(YMcode = format(DATE, "%Y-%m")) %>%
+  group_by(YMcode, STORE_NBR) %>%
+  summarise(total = n_distinct(LYLTY_CARD_NBR), .groups = "drop") %>%
+  filter(STORE_NBR == 86 | STORE_NBR == 155) %>%
+  pivot_wider(names_from = STORE_NBR, values_from = total, names_prefix = "Store_Nbr") %>%
+  mutate(upper = Store_Nbr155+qt(p = 0.025,6, lower.tail = FALSE)*sd(Store_Nbr155[YMcode < "2019-02"])/sqrt(7),
+         lower = Store_Nbr155+qt(p = 0.025,6, lower.tail = TRUE)*sd(Store_Nbr155[YMcode < "2019-02"])/sqrt(7)) %>%
+  pivot_longer(cols = c(Store_Nbr86, Store_Nbr155,upper,lower), 
+               names_to = "Series", 
+               values_to ="Values") %>%
+  mutate(Series = case_when(Series == "Store_Nbr155" ~ "Control Store 155",
+                            Series == "Store_Nbr86" ~ "Trial Store 86",
+                            Series == "upper" ~ "Upper 95% Confidence Interval Store 155",
+                            Series == "lower" ~ "Lower 95% Confidence Interval Store 155")) %>%
+  ggplot(aes(x = YMcode, y = Values, color = Series, group = Series)) +
+    geom_rect(aes(xmin = format(as.Date("2019-02-01"), "%Y-%m"), 
+                  xmax = format(as.Date("2019-04-30"), "%Y-%m"), 
+                  ymin = -Inf, ymax = Inf),
+                  fill = "lightblue", alpha = 0.3, inherit.aes = FALSE) +
+    geom_line(size = 1) +
+    labs(title = "Number of Customer by Month", 
+         x = "Month", 
+         y = "Number of Customer",
+         color = "Store") +
+    scale_y_continuous(breaks = seq(0, 150, by = 10)) +
+    scale_x_discrete(guide = guide_axis(angle = 45)) +
+    theme_minimal()
+```
+
+# Analysis of Trial Store 88 compare to Control Store 237
+
+a) Total Sales
+
+```{r Total Sales of store in pre-trial duration for Store 88}
+Chip %>%
+  mutate(YMcode = format(DATE, "%Y-%m")) %>%
+  group_by(YMcode, STORE_NBR) %>%
+  filter(YMcode < "2019-02") %>%
+  summarise(total = sum(TOT_SALES), .groups = "drop") %>%
+  mutate(timeline = case_when(
+    STORE_NBR == 88 ~ "Trial Store",
+    STORE_NBR == 237 ~ "Control Store",
+    TRUE ~ "Other Stores"
+  )) %>%
+  group_by(YMcode, timeline) %>%
+  summarise(total = mean(total), .groups = "drop") %>%
+  ggplot(aes(x = YMcode, y = total, color = timeline, group = timeline)) +
+  geom_line(size = 1) +
+  labs(title = "Total Sales Comparison between Store 88 (Trial),Store 237 (Control) and Average Total Sales of Other Stores", 
+       x = "Date", 
+       y = "Total",
+       color = "Store") +
+  theme_minimal()
+```
+
+```{r Significant diff in total sales between trial and pre-trial for store 88, message=FALSE}
+trial_month <- c("2019-02","2019-03","2019-04")
+for (i in trial_month) {
+  Mod_Chip <- Chip %>%
+  mutate(YMcode = format(DATE, "%Y-%m")) %>%
+  group_by(YMcode, STORE_NBR) %>%
+  filter((YMcode < "2019-02" | YMcode == i) & (STORE_NBR == 88 | STORE_NBR == 237 )) %>%
+  summarise( total = sum(TOT_SALES)) %>%
+  pivot_wider(names_from = STORE_NBR, values_from = total, names_prefix = "STORE_NBR_") %>%
+  ungroup() %>%
+  mutate(Controled_Store_NBR_237 = STORE_NBR_237*sum(STORE_NBR_88)/sum(STORE_NBR_237),
+         Abs_diff_tot_with_control = abs(STORE_NBR_88 - Controled_Store_NBR_237))
+  trial <- Mod_Chip %>%
+    filter(YMcode < "2019-02") %>%
+    pull(Abs_diff_tot_with_control)
+  Mean <- Mod_Chip %>%
+    filter(YMcode == i) %>%
+    pull(Abs_diff_tot_with_control)
+  SD <- sd(trial)
+  t <- abs(mean(trial)-Mean)/(SD/sqrt(7))
+  if(t > qt(p = 0.025,6, lower.tail = FALSE))
+  { print(paste("Trial Month",i, "is significant different compared to pre-trial month"))}
+  else
+  {
+    print(paste("Trial Month",i, "is not significant different compared to pre-trial month"))
+  }
+}
+```
+
+```{r Total Sales between 95percent confidence interval of store 237 and store 88}
+Chip %>%
+  mutate(YMcode = format(DATE, "%Y-%m")) %>%
+  group_by(YMcode, STORE_NBR) %>%
+  summarise(total = sum(TOT_SALES), .groups = "drop") %>%
+  filter(STORE_NBR == 88 | STORE_NBR == 237) %>%
+  pivot_wider(names_from = STORE_NBR, values_from = total, names_prefix = "Store_Nbr") %>%
+  mutate(upper = Store_Nbr237+qt(p = 0.025,6, lower.tail = FALSE)*sd(Store_Nbr237[YMcode < "2019-02"])/sqrt(7),
+         lower = Store_Nbr237+qt(p = 0.025,6, lower.tail = TRUE)*sd(Store_Nbr237[YMcode < "2019-02"])/sqrt(7)) %>%
+  pivot_longer(cols = c(Store_Nbr88, Store_Nbr237,upper,lower), 
+               names_to = "Series", 
+               values_to ="Values") %>%
+  mutate(Series = case_when(Series == "Store_Nbr237" ~ "Control Store 237",
+                            Series == "Store_Nbr88" ~ "Trial Store 88",
+                            Series == "upper" ~ "Upper 95% Confidence Interval Store 237",
+                            Series == "lower" ~ "Lower 95% Confidence Interval Store 237")) %>%
+  ggplot(aes(x = YMcode, y = Values, color = Series, group = Series)) +
+    geom_rect(aes(xmin = format(as.Date("2019-02-01"), "%Y-%m"), 
+                  xmax = format(as.Date("2019-04-30"), "%Y-%m"), 
+                  ymin = -Inf, ymax = Inf),
+                  fill = "lightblue", alpha = 0.3, inherit.aes = FALSE) +
+    geom_line(size = 1) +
+    labs(title = "Total Sales by Month", 
+         x = "Month", 
+         y = "Total Sales",
+         color = "Store") +
+    scale_y_continuous(breaks = seq(0, 1500, by = 100)) +
+    scale_x_discrete(guide = guide_axis(angle = 45)) +
+    theme_minimal()
+```
+
+b) Number of Customer
+
+```{r Number of Customer of store in pre-trial duration for Store 88}
+Chip %>%
+  mutate(YMcode = format(DATE, "%Y-%m")) %>%
+  group_by(YMcode, STORE_NBR) %>%
+  filter(YMcode < "2019-02") %>%
+  summarise(total = n_distinct(LYLTY_CARD_NBR), .groups = "drop") %>%
+  mutate(timeline = case_when(
+    STORE_NBR == 88 ~ "Trial Store",
+    STORE_NBR == 237 ~ "Control Store",
+    TRUE ~ "Other Stores"
+  )) %>%
+  group_by(YMcode, timeline) %>%
+  summarise(total = mean(total), .groups = "drop") %>%
+  ggplot(aes(x = YMcode, y = total, color = timeline, group = timeline)) +
+  geom_line(size = 1) +
+  labs(title = "Number of Customer Comparison between Store 88 (Trial),Store 237 (Control) and Average Total Sales of Other Stores", 
+       x = "Date", 
+       y = "Number of Customer",
+       color = "Store") +
+  theme_minimal()
+```
+
+```{r Significant diff in total customer between trial and pre-trial for store 88, message=FALSE}
+trial_month <- c("2019-02","2019-03","2019-04")
+for (i in trial_month) {
+  Mod_Chip <- Chip %>%
+  mutate(YMcode = format(DATE, "%Y-%m")) %>%
+  group_by(YMcode, STORE_NBR) %>%
+  filter((YMcode < "2019-02" | YMcode == i) & (STORE_NBR == 88 | STORE_NBR == 237 )) %>%
+  summarise( total = n_distinct(LYLTY_CARD_NBR)) %>%
+  pivot_wider(names_from = STORE_NBR, values_from = total, names_prefix = "STORE_NBR_") %>%
+  ungroup() %>%
+  mutate(Controled_Store_NBR_237 = STORE_NBR_237*sum(STORE_NBR_88)/sum(STORE_NBR_237),
+         Abs_diff_tot_with_control = abs(STORE_NBR_88 - Controled_Store_NBR_237))
+  trial <- Mod_Chip %>%
+    filter(YMcode < "2019-02") %>%
+    pull(Abs_diff_tot_with_control)
+  Mean <- Mod_Chip %>%
+    filter(YMcode == i) %>%
+    pull(Abs_diff_tot_with_control)
+  SD <- sd(trial)
+  t <- abs(mean(trial)-Mean)/(SD/sqrt(7))
+  if(t > qt(p = 0.025,6, lower.tail = FALSE))
+  { print(paste("Trial Month",i, "is significant different compared to pre-trial month"))}
+  else
+  {
+    print(paste("Trial Month",i, "is not significant different compared to pre-trial month"))
+  }
+}
+```
+
+```{r Total Customer between 95percent confidence interval of store 237 and store 88}
+Chip %>%
+  mutate(YMcode = format(DATE, "%Y-%m")) %>%
+  group_by(YMcode, STORE_NBR) %>%
+  summarise(total = n_distinct(LYLTY_CARD_NBR), .groups = "drop") %>%
+  filter(STORE_NBR == 88 | STORE_NBR == 237) %>%
+  pivot_wider(names_from = STORE_NBR, values_from = total, names_prefix = "Store_Nbr") %>%
+  mutate(upper = Store_Nbr237+qt(p = 0.025,6, lower.tail = FALSE)*sd(Store_Nbr237[YMcode < "2019-02"])/sqrt(7),
+         lower = Store_Nbr237+qt(p = 0.025,6, lower.tail = TRUE)*sd(Store_Nbr237[YMcode < "2019-02"])/sqrt(7)) %>%
+  pivot_longer(cols = c(Store_Nbr88, Store_Nbr237,upper,lower), 
+               names_to = "Series", 
+               values_to ="Values") %>%
+  mutate(Series = case_when(Series == "Store_Nbr237" ~ "Control Store 237",
+                            Series == "Store_Nbr88" ~ "Trial Store 88",
+                            Series == "upper" ~ "Upper 95% Confidence Interval Store 237",
+                            Series == "lower" ~ "Lower 95% Confidence Interval Store 237")) %>%
+  ggplot(aes(x = YMcode, y = Values, color = Series, group = Series)) +
+    geom_rect(aes(xmin = format(as.Date("2019-02-01"), "%Y-%m"), 
+                  xmax = format(as.Date("2019-04-30"), "%Y-%m"), 
+                  ymin = -Inf, ymax = Inf),
+                  fill = "lightblue", alpha = 0.3, inherit.aes = FALSE) +
+    geom_line(size = 1) +
+    labs(title = "Number of Customer by Month", 
+         x = "Month", 
+         y = "Number of Customer",
+         color = "Store") +
+    scale_y_continuous(breaks = seq(0, 150, by = 10)) +
+    scale_x_discrete(guide = guide_axis(angle = 45)) +
+    theme_minimal()
+```
